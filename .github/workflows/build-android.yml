@@ -1,0 +1,48 @@
+name: Build MARK 3 Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3.0
+
+    steps:
+      - name: Download game project
+        uses: actions/checkout@v4
+
+      - name: Prepare Android signing key
+        run: |
+          mkdir -p build
+          keytool -genkeypair \
+            -keystore build/debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Configure APK signing
+        run: |
+          sed -i '/package\/signed=true/a keystore/debug="build/debug.keystore"\nkeystore/debug_user="androiddebugkey"\nkeystore/debug_password="android"' export_presets.cfg
+
+      - name: Build APK
+        run: |
+          mkdir -p build
+          godot --headless --path . \
+            --export-debug "Android" build/MARK3.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARK3-Android-APK
+          path: build/MARK3.apk
+          if-no-files-found: error
+          retention-days: 14
